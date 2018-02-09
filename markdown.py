@@ -3,8 +3,10 @@ import hashlib
 import re
 
 SHOWLOG = False
+
+
 def LOG(title, text):
-    if SHOWLOG==True:
+    if SHOWLOG == True:
         print('##########\n' + title + '\n' + str(text) + '\n')
     pass
 
@@ -23,7 +25,7 @@ class Markdown:
                 r'<code>\1</code>'],
             # image
             [r'(?<!\\)\!\[(.*?)\]\((.*?)\)',
-                r'<img src="\2" alt="\1" />'],
+                r'<img class="materialboxed responsive-img" src="\2" alt="\1" />'],
             # link
             [r'(?<!\\)\[(.*?)\]\((.*?)\)',
                 r'<a href="\2">\1</a>'],
@@ -42,21 +44,30 @@ class Markdown:
             # checkbox
             [r'(?<!\\)\[([xX ])\] (.*?)$',
                 lambda res: r'<input type="checkbox" disabled="disabled"' + (r' checked="checked"' if res[1] != ' ' else '') + r'>' + res[2]],
+            [r'^-{3,}$', '<hr>'],
             # escape
             #[r'(?:\\(.))',
             #    r'\1'],
         ]
 
         self.__blockGrammarList = [
-            [r'^```(.*?)$', r'^```$', self.__parseCodeBlock, True],
+            [r'^[ ]*```(.*?)$', r'(?=^|[ ]+)```$',
+             self.__parseCodeBlock, True],
             [r'^>+ .*$', r'', self.__parseQuoteBlock, False],
             [r'^\|(?:.*?\|)+$', r'', self.__parseTableBlock, False],
             [r'^[ ]*[\-\*] .*?$', r'^$', self.__parseULBlock, True],
             [r'^[ ]*[0-9]+\. .*?$', r'^$', self.__parseOLBlock, True],
-            [r'{% raw %}',r'{% endraw %}',self.__parseRawTagBlock,True],
+            [r'\{\% raw \%\}', r'\{\% endraw \%\}',
+                self.__parseRawTagBlock, True],
+            [r'\{\% fold .*\%\}', r'\{\% endfold \%\}',
+                self.__parseFoldBlock, True],
+            [r'\{\% cq \%\}', r'\{\% endcq \%\}',
+                self.__parseCenterQuoteBlock, True],
+            [r'\{\% blockquote \%\}', r'\{\% endblockquote \%\}',
+                self.__parseCenterQuoteBlock, True],
         ]
 
-    def makeHtml(self, text):
+    def makeHtml(self, text, allowHtml):
         '''
         将markdown转换成html
         '''
@@ -64,12 +75,12 @@ class Markdown:
         self.__uniqid = hashlib.md5(str(time.time()).encode()).hexdigest()
         self.__id = 0
 
-        #__blockParsers.sort(key=lambda x: x[1])
+        if allowHtml == False:
+            text = self.__escapeHtml(text)
 
         text = self.__initText(text)
         html = self.__parse(text)
-        # html = makeFootnotes(html)
-        # html = optimizeLines(html)
+
         return html
 
     def __initText(self, text):
@@ -94,7 +105,7 @@ class Markdown:
         beginPos = 0
         html = ''
         for row in range(len(lines)):
-            #print(row, lines[row])
+            # print(row, lines[row])
             if typeid != -1:
                 # in block
                 if self.__blockGrammarList[typeid][3] == True:
@@ -119,7 +130,7 @@ class Markdown:
                         typeid = blockid
                         beginPos = row
                         break
-                if lines[row] != '' and typeid == -1:
+                if typeid == -1:
                     # render this line
                     html += self.__parseInline(lines[row]) + r'<br>'
 
@@ -136,25 +147,44 @@ class Markdown:
 
         return html
 
-    def __parseRawTagBlock(self,lines):
+    def __parseRawTagBlock(self, lines):
         return self.__parseRawBlock(lines[1:-1])
+
     def __parseRawBlock(self, lines):
         '''
         不转义
         '''
         html = ''
         for line in lines:
-            html += self.__encodeHtmlChars(line, space=False) + '<br>'
+            html += line + '\n'
         return html
 
     def __parseCodeBlock(self, lines):
         '''
         代码块转义
         '''
-        language = r' ' + lines[0][3:]
-        html = r'<pre><code class="' + language + '">' +\
-            self.__parseRawBlock(lines[1:-1]) + r'</code></pre>'
+        res = re.match(r'^[ ]*```[ ]*(.+?)(?: .*)*$', lines[0])
+
+        language = ' class="%s"' % res.group(1) if res else ''
+        html = r'<pre><codeblock' + language + '>' +\
+            self.__parseRawBlock(
+                self.__escapeHtml(
+                    self.__deleteSpace(lines[1:-1])
+                )
+            ) + r'</codeblock></pre>'
         return html
+
+    def __deleteSpace(self, lines):
+        '''
+        删除相同数目的空格，保证最前面的前面没有空格
+        '''
+        Minpos = 9999999999
+        for line in lines:
+            Minpos = min(Minpos, max(0, self.__findFirstChar(line)))
+            # __findFirstChar() 可能会返回-1（空行）,把最小值限定为0
+
+        lines = [line[Minpos:] for line in lines]
+        return lines
 
     def __parseQuoteBlock(self, lines):
         '''
@@ -163,6 +193,27 @@ class Markdown:
         newlines = [re.sub(r'^[ ]+(.*?)$', r'\1', line[1:]) for line in lines]
         # print(lines, "\n", newlines)
         html = r'<blockquote>' + self.__parseBlock(newlines) + r'</blockquote>'
+        return html
+
+    def __parseCenterQuoteBlock(self, lines):
+        '''
+        引用块转义
+        '''
+        # print(lines, "\n", newlines)
+        html = r'<blockquote class="center">' + \
+            self.__parseBlock(lines[1:-1]) + r'</blockquote>'
+        return html
+
+    def __parseFoldBlock(self, lines):
+        res = re.match(r'\{\% fold (.*?) \%\}[ ]*(.*)$', lines[0])
+        matchList = res.groups() if res else ['', '']
+        text = res.group(1) if matchList[0] != '' else '点击显/隐区域'
+        if matchList[1] != '':
+            lines.insert(1, matchList[1])
+
+        html = '<div class="fold_parent"><div class="fold_hider"><div class="close hider_title">' + \
+            text + '</div></div><div class="fold">\n' + \
+            self.__parseBlock(lines[1:-1]) + '\n</div></div>'
         return html
 
     def __findFirstChar(self, line):
@@ -178,7 +229,7 @@ class Markdown:
         for i in range(lines.count(r'')):
             lines.remove(r'')
 
-        TagBegin = '<' + ListType + '>'
+        TagBegin = '<' + ListType + ' class="browser-default">'
         TagEnd = '</' + ListType + '>'
 
         List = ['    ' for i in lines]
@@ -249,8 +300,13 @@ class Markdown:
         hasAlign = False
         align = ['' for i in range(col)]
 
-        if row > 1:
+        for r in range(row):
+            while len(Table[r]) < col:
+                Table[r].append('')
 
+        LOG("parseTableBlock", Table)
+
+        if row > 1:
             for i in range(col):
                 if re.match("^\:\-+$", Table[1][i]) != None:
                     align[i] = ' class="left" '
@@ -275,21 +331,15 @@ class Markdown:
 
         html = r''
         for i in range(row):
-            if i == 0 and hasAlign == True:
-                html += r'<th><tr>'
-            else:
-                html += r'<tr>'
+            html += r'<tr>'
 
             for j in range(col):
                 html += r'<td' + align[j] + r'>' + \
                     self.__parseInline(Table[i][j]) + r'</td>'
 
-            if i == 0 and hasAlign == True:
-                html += r'</tr></th>'
-            else:
-                html += r'</tr>'
+            html += r'</tr>'
 
-        html = r'<table>' + html + r'</table>'
+        html = r'<table class="responsive-table highlight striped">' + html + r'</table>'
         return html
 
     def __makeHolder(self, text):
@@ -312,14 +362,23 @@ class Markdown:
         LOG("release", text.replace('\r', '\\r'))
         return text
 
+    def __escapeHtml(self, text):
+        if type(text) == list:
+            for i in range(len(text)):
+                text[i] = text[i].replace(
+                    '<', '&lt;').replace('>', '&gt;')
+        elif type(text) == str:
+            text = text.replace('<', '&lt;').replace('>', '&gt;')
+        return text
+
     def __encodeHtmlChars(self, text, space=True):
         '''
         转义HTML的特殊字符
         '''
         text = text.replace('&', "&amp;")
         text = text.replace('"', "&quot;")
-        text = text.replace('<', "&lt;")
-        text = text.replace('>', "&gt;")
+        # text = text.replace('<', "&lt;")
+        # text = text.replace('>', "&gt;")
         if space == True:
             text = text.replace(' ', "&nbsp;")
         return text
@@ -330,7 +389,8 @@ class Markdown:
         '''
         LOG("formatText", (_format, _matches.groups()))
         _text = ""
-        res = [self.__encodeHtmlChars(match) for match in _matches.groups()]
+        res = [self.__escapeHtml(self.__encodeHtmlChars(match))
+               for match in _matches.groups()]
         res.insert(0, "")
         if type(_format) == str:
             _text = _format
@@ -351,8 +411,8 @@ class Markdown:
                           self.__makeHolder(
                 self.__formatText(grammar[1], matches)
             ), text, flags=re.M)
-        text=re.sub(r'\\(.)',r'\1',text)
-        
+        text = re.sub(r'\\(.)', r'\1', text)
+
         LOG("beforeRelease", text.replace('\r', '\\r'))
         text = self.__releaseHolder(text)
         # 删除前面多余的空格
@@ -360,6 +420,7 @@ class Markdown:
         return text
 
 
-def renderMarkdown(raw,showlog=False):
-    SHOWLOG=showlog
-    return Markdown().makeHtml(raw)
+def renderMarkdown(raw, showlog=False, allowHtml=True):
+    global SHOWLOG
+    SHOWLOG = showlog
+    return Markdown().makeHtml(raw, allowHtml)

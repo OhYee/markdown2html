@@ -2,7 +2,6 @@ from markdown import renderMarkdown
 
 if __name__ == "__main__":
     raw = r'''
-
 `123`
 `#include <cstdio>`
 
@@ -73,15 +72,15 @@ int main(){
 > `code`
 > **引用内的加粗**
 
+<input type='text'/>
 
+&lt;
 
 '''
 
-
-
 if __name__=='__main__':
-    markdown = renderMarkdown(raw)
+    markdown = renderMarkdown(raw,showlog=True,allowHtml=True)
     print(markdown)
-    f = open("./md.html", "w")
+    f = open("./md.html", "w",encoding='utf-8')
     f.write(markdown)
     f.close()
