@@ -25,7 +25,7 @@ class Markdown:
                 r'<code>\1</code>'],
             # image
             [r'(?<!\\)\!\[(.*?)\]\((.*?)\)',
-                r'<img class="materialboxed responsive-img" src="\2" alt="\1" />'],
+                r'<a href="\2" alt="\1" data-lightbox="\1-\2" data-title="\1"><img class="img-responsive" src="\2" alt="\1"></a>'],
             # link
             [r'(?<!\\)\[(.*?)\]\((.*?)\)',
                 r'<a href="\2">\1</a>'],
@@ -166,7 +166,7 @@ class Markdown:
         res = re.match(r'^[ ]*```[ ]*(.+?)(?: .*)*$', lines[0])
 
         language = ' class="%s"' % res.group(1) if res else ''
-        html = r'<pre><codeblock' + language + '>' +\
+        html = r'<pre class="codeblock"><codeblock' + language + '>' +\
             self.__parseRawBlock(
                 self.__escapeHtml(
                     self.__deleteSpace(lines[1:-1])
@@ -211,7 +211,7 @@ class Markdown:
         if matchList[1] != '':
             lines.insert(1, matchList[1])
 
-        html = '<div class="fold_parent"><div class="fold_hider"><div class="close hider_title">' + \
+        html = '<div class="fold_parent"><div class="fold_hider"><div class="fold_close hider_title">' + \
             text + '</div></div><div class="fold">\n' + \
             self.__parseBlock(lines[1:-1]) + '\n</div></div>'
         return html
