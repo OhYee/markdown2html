@@ -1,1 +1,1 @@
-from .markdown import renderMarkdown 
+from .markdown import render_markdown 
