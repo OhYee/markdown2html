@@ -49,7 +49,7 @@ def render_markdown(raw: str, allow_html: bool = True, debug: bool = False)->str
 
     line_grammer_list = [
         # raw
-        [r'\{\% raw \%\}(.*?)\{\% endraw \%\}',r'\1'],
+        [r'\{\% raw \%\}(.*?)\{\% endraw \%\}', r'\1'],
         # code
         [r'(?<!\\)`(.+?)`', r'<code>\1</code>'],
         # image
@@ -123,7 +123,7 @@ def render_markdown(raw: str, allow_html: bool = True, debug: bool = False)->str
         text = ""
         res = [escape_html(encode_html(match)) for match in groups]
         res.insert(0, "")
-        log(res,fmt)
+        log(res, fmt)
         if type(fmt) == str:
             text = fmt
             result = re.findall(r'\\([0-9]+)', text)
@@ -183,8 +183,8 @@ def render_markdown(raw: str, allow_html: bool = True, debug: bool = False)->str
 
         lines = [line[Minpos:] for line in lines]
         return lines
-    
-    def parse_raw(lines:list)->str:
+
+    def parse_raw(lines: list)->str:
         '''
         Don't render these lines.
         '''
@@ -330,7 +330,6 @@ def render_markdown(raw: str, allow_html: bool = True, debug: bool = False)->str
         return parse_list(lines, 'ol', r'^[ ]*[0-9]+\. (.*?)$', r'^[0-9]+\. (.*?)$')
 
     @block(r'\{\% raw \%\}', r'\{\% endraw \%\}')
-    @block(r'^\$+$',r'^\$+$')
     def parse_rawblock(lines: list)->list:
         '''
         Markdown raw block.
@@ -340,6 +339,17 @@ def render_markdown(raw: str, allow_html: bool = True, debug: bool = False)->str
         {% endraw %}
         '''
         return parse_raw(lines[1:-1])
+
+    @block(r'^\$+$', r'^\$+$')
+    def parse_mathjax(lines: list)->list:
+        '''
+        Markdown raw block.
+
+        $$
+        mathjax
+        $$
+        '''
+        return '$$\n'+parse_raw(lines[1:-1])+'\n$$'
 
     @block(r'\{\% fold .*\%\}', r'\{\% endfold \%\}')
     def parse_fold(lines: list)->str:
@@ -452,11 +462,11 @@ def render_markdown(raw: str, allow_html: bool = True, debug: bool = False)->str
 
 if __name__ == "__main__":
     raw = ''
-    with open("./in.md", "r",encoding = "utf-8") as f:
+    with open("./in.md", "r", encoding="utf-8") as f:
         raw = f.read()
 
     raw = r'$\int_{0}^{x} \varphi dt = 1$ '
     markdown = render_markdown(raw, allow_html=True, debug=True)
     print(markdown)
-    with open("./out.html", "w",encoding="utf-8")as f:
+    with open("./out.html", "w", encoding="utf-8")as f:
         f.write(markdown)
