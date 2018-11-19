@@ -316,7 +316,7 @@ def render_markdown(raw: str, allow_html: bool = True, debug: bool = False)->str
 
             html += r'</tr>'
 
-        html = r'<table class="responsive-table highlight striped">' + html + r'</table>'
+        html = r'<div class="table-responsive"><table class="table table-striped table-hover">' + html + r'</table></div>'
         return html
 
     @block('^[ ]*[\-\*] .*?$', r'^$')
