@@ -65,8 +65,8 @@ def render_markdown(raw: str, allow_html: bool = True, debug: bool = False)->str
         # em
         [r'(?<!\\)[_\*](.*?)[_\*]', r'<em>\1</em>'],
         # title
-        [r'(?<!\\)(?<!#)(#+) (.*)\s*$', lambda res: r'<h' + \
-            str(len(res[1])) + r'>' + res[2] + '</h' + str(len(res[1])) + '>'],
+        [r'(?<!\\)(?<!#)(#+) (.*)\s*$',
+            lambda res: r'<h{0}><a name="{1}" href="#{1}">{1}</a></h{0}>'.format(len(res[1]), res[2])],
         # checkbox
         [r'(?<!\\)\[([xX ])\] (.*?)$', lambda res: r'<input type="checkbox" disabled="disabled"' + \
             (r' checked="checked"' if res[1] != ' ' else '') + r'>' + res[2]],
@@ -316,7 +316,8 @@ def render_markdown(raw: str, allow_html: bool = True, debug: bool = False)->str
 
             html += r'</tr>'
 
-        html = r'<div class="table-responsive"><table class="table table-striped table-hover">' + html + r'</table></div>'
+        html = r'<div class="table-responsive"><table class="table table-striped table-hover">' + \
+            html + r'</table></div>'
         return html
 
     @block('^[ ]*[\-\*] .*?$', r'^$')
