@@ -48,6 +48,13 @@ def render_markdown(raw: str, allow_html: bool = True, debug: bool = False)->str
     uniqid = hashlib.md5(str(time.time()).encode()).hexdigest()
 
     line_grammer_list = [
+        # title_pre
+        [r'(?<!\\)(?<!#)(#+) (.*)\s*$',
+            lambda res: r'<h{0}><a name="{1}" href="#{1}">{2}</a></h{0}>'.format(
+                len(res[1]), re.sub(
+                    r'[ `*#<>\\/=\s\&\^\%\$@\!;\'\":\.,\?\[\]\{\|\}]', "", res[2]
+                ), parse_line(res[2])
+            )],
         # raw
         [r'\{\% raw \%\}(.*?)\{\% endraw \%\}', r'\1'],
         # code
@@ -65,8 +72,8 @@ def render_markdown(raw: str, allow_html: bool = True, debug: bool = False)->str
         # em
         [r'(?<!\\)[_\*](.*?)[_\*]', r'<em>\1</em>'],
         # title
-        [r'(?<!\\)(?<!#)(#+) (.*)\s*$',
-            lambda res: r'<h{0}><a name="{1}" href="#{1}">{1}</a></h{0}>'.format(len(res[1]), res[2])],
+        # [r'(?<!\\)(?<!#)(#+) (.*)\s*$',
+        # lambda res: r'<h{0}><a name="{1}" href="#{1}">{1}</a></h{0}>'.format(len(res[1]), re.sub(r'<[^>]*>', "", res[2]))],
         # checkbox
         [r'(?<!\\)\[([xX ])\] (.*?)$', lambda res: r'<input type="checkbox" disabled="disabled"' + \
             (r' checked="checked"' if res[1] != ' ' else '') + r'>' + res[2]],
@@ -96,10 +103,11 @@ def render_markdown(raw: str, allow_html: bool = True, debug: bool = False)->str
         log(result)
         while result:
             for key in result:
-                log("release {}".format(key.replace('\r', '\\r')))
-                text = text.replace(key, holders[key])
-                del holders[key]
-                log("holders {}".format(str(holders)))
+                if key in text:
+                    log("release {}".format(key.replace('\r', '\\r')))
+                    text = text.replace(key, holders[key], -1)
+                    del holders[key]
+                    log("holders {}".format(str(holders)))
             result = re.findall('(\|\r.+?\r\|)', text)
 
         # for key in holders.keys():
@@ -142,8 +150,8 @@ def render_markdown(raw: str, allow_html: bool = True, debug: bool = False)->str
             line = re.sub(line_type[0], lambda matches: make_holder(
                 format_text(line_type[1], matches.groups())), line, flags=re.M)
         log(str(holders))
-        line = re.sub(r'\\(.)', r'\1', line)
         line = release_holder(line).strip()
+        line = re.sub(r'\\(.)', r'\1', line)
         log(str(line))
         return line
 
