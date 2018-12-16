@@ -196,7 +196,7 @@ def render_markdown(raw: str, allow_html: bool = True, debug: bool = False)->str
         '''
         Don't render these lines.
         '''
-        return '<br>'.join(lines)
+        return '\n'.join(lines)
 
     def parse_list(lines: list, ListType: str, RE1: str, RE2: str)->str:
         for i in range(lines.count(r'')):
